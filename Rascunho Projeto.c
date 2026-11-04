@@ -110,21 +110,60 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, int cc_n
     cartaoAtual->somaValores+=amt_lida;
  }
 
- void gerarCSV(cartaoNode *inicioGeral){
-    if (inicioGeral==NULL){
-        printf("Arquivos nn foram lidos anteriormente.\n");
-        return;
-    }
-    cartaoNode *cartaoAtual=inicioGeral;
-    FILE *arquivoSaida=fopen("Saida.csv", "w");
+//Função para gerar o CSV ordenado pelo número do cartão, AINDA EM CONSTRUÇÃO
 
-    if (arquivoSaida==NULL){
-        printf("Erro ao abrir o arquivo para escrita.\n");
-        return;
-    }
-    while (cartaoAtual!=NULL){
-    }
+ void gerarCSV(cartaoNode *inicioGeral){
+
+ cartaoNode *cartaoAtual=inicioGeral;
+
+ if (inicioGeral==NULL){
+    printf("Arquivos nn foram lidos anteriormente.\n");
+    return;
  }
+
+ FILE *arquivoSaida=fopen("Saida.csv", "w");
+
+ if (arquivoSaida==NULL){
+    printf("Erro ao abrir o arquivo para escrita.\n");
+    return;
+ }
+
+ fprintf(arquivoSaida, "year,month,day,trans_datetime,category,amt,fraud_typeA,fraud_typeB,fraud_typeC\n");
+
+ transacao *aux1=cartaoAtual->transacoesInicio;
+
+ while (aux1!=NULL){
+
+     //Verificação do tipo de fraude A:
+  char FraudA[2]="N";
+
+  transacao *aux2=cartaoAtual->transacoesInicio;
+
+  while (aux2!=NULL){
+    if(aux1!=aux2 && (aux1->trans_datetime - aux2->trans_datetime)<120){
+        strcpy(FraudA, "Y");
+        break;
+    }
+    aux2=aux2->prox;
+  }
+
+    //Verificação do tipo de fraude B:
+     
+  char FraudB[2]="N";
+
+
+    //Verificação do tipo de fraude C:
+     
+  char FraudC[2]="N";
+
+
+   //Conversão do tempo em epoch para as variáveis de ano, mês e dia:
+  int ano, mes, dia;
+  obterData(aux->trans_datetime, &ano, &mes, &dia);
+
+     
+ }
+
 
 int carregarArquivos (cartaoNode **inicioGeral, const char *nomeArquivo){
     FILE *PontArquivo=fopen(nomeArquivo, "r");
