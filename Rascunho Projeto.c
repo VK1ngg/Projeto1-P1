@@ -152,10 +152,13 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, int cc_n
   char FraudB[2]="N";
 
 
-    //Verificação do tipo de fraude C:
+    //Verificação do tipo de fraude C (Não tenho certeza se está correto):
      
   char FraudC[2]="N";
-
+   double distancia = calcularHaversine(aux1->lat, aux1->longi, aux1->merch_lat, aux1->merch_long);
+  if (distancia>78){
+    strcpy(FraudC, "Y");
+  }
 
    //Conversão do tempo em epoch para as variáveis de ano, mês e dia:
   int ano, mes, dia;
@@ -173,13 +176,19 @@ int carregarArquivos (cartaoNode **inicioGeral, const char *nomeArquivo){
         return 1;
     }
 
+    //É necessário pular o cabeçalho para a leitura adequada:
+    char cabecalho[80];
+    fgets(cabecalho, sizeof(cabecalho), PontArquivo);
+    
     int trans_datetimeLida, cc_numLida, categoryLida;
     float amt_lido, latLida, longiLida, merch_latLida, merch_longLida ;
     char genderLido[2];
     int total;
     int linhas_lidas;
 
-    while (fscanf(PontArquivo, "%d;%lld;%d;%f;%1s;%f;%f;%f;%f", &trans_datetimeLida, &cc_numLida, &categoryLida, &amt_lido, genderLido, &latLida, &longiLida, &merch_latLida, &merch_longLida)==9){
+
+   //Troquei o ";" por "," já que esse é o padrão do arquivo: 
+    while (fscanf(PontArquivo, "%d,%lld,%d,%f,%1s,%f,%f,%f,%f", &trans_datetimeLida, &cc_numLida, &categoryLida, &amt_lido, genderLido, &latLida, &longiLida, &merch_latLida, &merch_longLida)==9){
         linhas_lidas++;
         inserirTransacao(inicioGeral, trans_datetimeLida, cc_numLida, categoryLida,
                        amt_lido, genderLido, latLida, longiLida, merch_latLida, merch_longLida);
