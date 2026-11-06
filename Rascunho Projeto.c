@@ -112,26 +112,31 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
 
 //Função para gerar o CSV ordenado pelo número do cartão, AINDA EM CONSTRUÇÃO
 
- void gerarCSV(cartaoNode *inicioGeral){
+ void gerarCSVs(cartaoNode *inicioGeral){
 
  if (inicioGeral==NULL){
     printf("Arquivos nn foram lidos anteriormente.\n");
     return;
  }
 
- FILE *arquivoSaida=fopen("Saida.csv", "w");
-
- if (arquivoSaida==NULL){
-    printf("Erro ao abrir o arquivo para escrita.\n");
-    return;
- }
-
- fprintf(arquivoSaida, "year,month,day,trans_datetime,category,amt,fraud_typeA,fraud_typeB,fraud_typeC\n");
-
  cartaoNode *cartaoAtual=inicioGeral;
     //Variável para percorrer a lista de cartões
 
  while (cartaoAtual!=NULL){
+
+  char nomeArquivo[64];
+  sprintf(nomeArquivo, "%lld.csv", cartaoAtual->cc_num);
+     //Salva o número do cartão como o nome do arquivo
+     
+  FILE *arquivoCartao=fopen(nomeArquivo, "w");
+
+  if (arquivoCartao==NULL){
+    printf("Erro ao abrir o arquivo para escrita.\n");
+    return;
+  }
+
+  fprintf(arquivoCartao, "year,month,day,trans_datetime,category,amt,fraud_typeA,fraud_typeB,fraud_typeC\n");
+
 
        //variável auxiliar para percorrer as transações de CADA CARTÃO:
   transacao *aux1=cartaoAtual->transacoesInicio;
@@ -172,18 +177,19 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
    int ano, mes, dia;
    obterData(aux1->trans_datetime, &ano, &mes, &dia);
 
-  fprintf(arquivoSaida, "%d,%d,%d,%d,%d,%.2f,%s,%s,%s\n",
+  fprintf(arquivoCartao, "%d,%d,%d,%d,%d,%.2f,%s,%s,%s\n",
                     ano, mes, dia, aux1->trans_datetime, aux1->category,
                     aux1->amt, FraudA, FraudB, FraudC);
 
   aux1 = aux1->prox;
      
  }
+ fclose(arquivoCartao); // Fecha o arquivo do cartão atual
  cartaoAtual = cartaoAtual->prox; // Avança para o próximo cartão
+     
  }
-
- fclose(arquivoSaida);
- printf("Arquivo 'Saida.csv' gerado com sucesso.\n");
+     
+ printf("Todos os arquivos CSV individuais por cartao foram gerados com sucesso.\n");
 }
 
 
@@ -226,11 +232,11 @@ int main() {
 
     if (resultado==0){
         printf("Arquivo carregado e organizado com sucesso.\n");
+        gerarCSVs(inicioGeral);
     } else {
         printf("Falha ao carregar o arquivo.\n");
     }
 
-    gerarCSV(inicioGeral);
     
     return 0;
     
