@@ -114,8 +114,6 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
 
  void gerarCSV(cartaoNode *inicioGeral){
 
- cartaoNode *cartaoAtual=inicioGeral;
-
  if (inicioGeral==NULL){
     printf("Arquivos nn foram lidos anteriormente.\n");
     return;
@@ -130,42 +128,63 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
 
  fprintf(arquivoSaida, "year,month,day,trans_datetime,category,amt,fraud_typeA,fraud_typeB,fraud_typeC\n");
 
- transacao *aux1=cartaoAtual->transacoesInicio;
+ cartaoNode *cartaoAtual=inicioGeral;
+    //Variável para percorrer a lista de cartões
 
- while (aux1!=NULL){
+ while (cartaoAtual!=NULL){
+
+       //variável auxiliar para percorrer as transações de CADA CARTÃO:
+  transacao *aux1=cartaoAtual->transacoesInicio;
+    
+  while (aux1!=NULL){
 
      //Verificação do tipo de fraude A:
-  char FraudA[2]="N";
+   char FraudA[2]="N";
+   transacao *aux2=cartaoAtual->transacoesInicio;
 
-  transacao *aux2=cartaoAtual->transacoesInicio;
-
-  while (aux2!=NULL){
+   while (aux2!=NULL){
     if(aux1!=aux2 && (aux1->trans_datetime - aux2->trans_datetime)<120){
         strcpy(FraudA, "Y");
         break;
     }
     aux2=aux2->prox;
-  }
+   }
 
     //Verificação do tipo de fraude B:
      
-  char FraudB[2]="N";
-
-
+   char FraudB[2]="N";
+   if (cartaoAtual->qtdTransacoes>1){
+    float mediaOutras = (cartaoAtual->somaValores - aux1->amt) / (cartaoAtual->qtdTransacoes - 1);
+                if (aux1->amt >= 3.0 * mediaOutras) {
+                    strcpy(FraudB, "Y");
+      }
+    }
+       
     //Verificação do tipo de fraude C (Não tenho certeza se está correto):
      
-  char FraudC[2]="N";
+   char FraudC[2]="N";
    double distancia = calcularHaversine(aux1->lat, aux1->longi, aux1->merch_lat, aux1->merch_long);
-  if (distancia>78){
+   if (distancia>78){
     strcpy(FraudC, "Y");
-  }
+   }
 
    //Conversão do tempo em epoch para as variáveis de ano, mês e dia:
-  int ano, mes, dia;
-  obterData(aux->trans_datetime, &ano, &mes, &dia);
+   int ano, mes, dia;
+   obterData(aux1->trans_datetime, &ano, &mes, &dia);
 
+  fprintf(arquivoSaida, "%d,%d,%d,%d,%d,%.2f,%s,%s,%s\n",
+                    ano, mes, dia, aux1->trans_datetime, aux1->category,
+                    aux1->amt, FraudA, FraudB, FraudC);
+
+  aux1 = aux1->prox;
      
  }
+ cartaoAtual = cartaoAtual->prox; // Avança para o próximo cartão
+ }
+
+ fclose(arquivoSaida);
+ printf("Arquivo 'Saida.csv' gerado com sucesso.\n");
+}
 
 
 int carregarArquivos (cartaoNode **inicioGeral, const char *nomeArquivo){
