@@ -229,5 +229,9 @@ int main() {
     } else {
         printf("Falha ao carregar o arquivo.\n");
     }
+
+    gerarCSV(inicioGeral);
+    
     return 0;
+    
 }
