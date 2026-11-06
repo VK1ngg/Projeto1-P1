@@ -27,7 +27,7 @@ typedef struct cartaoNode{
     transacao *transacoesInicio;
     int qtdTransacoes;
     float somaValores;
-    struct CartaoNode *prox;
+    struct cartaoNode *prox;
 } cartaoNode;
 
 // Conversor de Graus para Radianos:
@@ -57,7 +57,7 @@ void obterData(int epoch, int *ano, int *mes, int *dia) {
 }
 
 //
-void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, int cc_numLida, int category_lida,
+void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long long cc_numLida, int category_lida,
                                 float amt_lida, char genderLido[2], float latLida, float longLida, float merch_latLida, float merch_longLida){
     cartaoNode *cartaoAtual=*inicioGeral;
 
@@ -180,11 +180,12 @@ int carregarArquivos (cartaoNode **inicioGeral, const char *nomeArquivo){
     char cabecalho[80];
     fgets(cabecalho, sizeof(cabecalho), PontArquivo);
     
-    int trans_datetimeLida, cc_numLida, categoryLida;
+    int trans_datetimeLida, categoryLida;
+    long long cc_numLida;
     float amt_lido, latLida, longiLida, merch_latLida, merch_longLida ;
     char genderLido[2];
     int total;
-    int linhas_lidas;
+    int linhas_lidas=0;
 
 
    //Troquei o ";" por "," já que esse é o padrão do arquivo: 
