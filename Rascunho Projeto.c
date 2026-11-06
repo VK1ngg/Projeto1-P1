@@ -58,7 +58,7 @@ void obterData(int epoch, int *ano, int *mes, int *dia) {
 
 //
 void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long long cc_numLida, int category_lida,
-                                float amt_lida, char genderLido[2], float latLida, float longLida, float merch_latLida, float merch_longLida){
+        float amt_lida, char genderLido[2], float latLida, float longLida, float merch_latLida, float merch_longLida){
     cartaoNode *cartaoAtual=*inicioGeral;
 
     while (cartaoAtual != NULL && cartaoAtual->cc_num != cc_numLida){
@@ -112,14 +112,14 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
 
 //Função para gerar o CSV ordenado pelo número do cartão, AINDA EM CONSTRUÇÃO
 
- void gerarCSVs(cartaoNode *inicioGeral){
+void gerarCSVs(cartaoNode *inicioGeral){
     if (inicioGeral==NULL){
         printf("Arquivos nn foram lidos anteriormente.\n");
         return;
     }
     cartaoNode *cartaoAtual=inicioGeral;
 
-//Variável para percorrer a lista de cartões
+    //Variável para percorrer a lista de cartões
     while (cartaoAtual!=NULL){
         char nomeArquivo[64];
         //Salva o número do cartão como o nome do arquivo
@@ -181,6 +181,12 @@ void inserirTransacao(cartaoNode **inicioGeral, int trans_datetimeLida, long lon
     printf("Todos os arquivos CSV individuais por cartao foram gerados com sucesso.\n");
 }
 
+void BuscaDeCartao(cartaoNode *inicioGeral, int N){
+    printf("Num. Cartao: %d\n", N);
+    cartaoNode *cartaoAtual=inicioGeral;
+    printf("Todos os arquivos CSV individuais por cartao foram gerados com sucesso.\n");
+}
+
 int carregarArquivos (cartaoNode **inicioGeral, const char *nomeArquivo){
     FILE *PontArquivo=fopen(nomeArquivo, "r");
     if (PontArquivo==NULL){
@@ -214,14 +220,17 @@ int main() {
     // Define o Inicio da lista encadeada:
     cartaoNode *inicioGeral = NULL;
     const char *nomeArquivo = "transacoes.csv";
-    int resultado=carregarArquivos(&inicioGeral, nomeArquivo);
+    int resultado = carregarArquivos(&inicioGeral, nomeArquivo);
 
     if (resultado==0){
         printf("Arquivo carregado e organizado com sucesso.\n");
         gerarCSVs(inicioGeral);
+        int buscaCartao;
+        printf("Digite o numero de um cartão para pesquisar:\n");
+        scanf("%d", &buscaCartao);
+        BuscaDeCartao(inicioGeral, buscaCartao);
     } else {
         printf("Falha ao carregar o arquivo.\n");
     }
-
     return 0;
 }
