@@ -1,23 +1,70 @@
-name: C/C++ CI
+name: Banca CI
+
+# A cada push/PR: compila com avisos, roda com as bases pequenas (bases_teste),
+# mede tempo e memória, procura vazamentos (valgrind) e variáveis globais.
+# A nota por fase continua vindo da Banca (✓/✗ "Banca" no commit).
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
-
+  banca:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+      - uses: actions/checkout@v4
+
+      - name: Instalar valgrind
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq valgrind time > /dev/null
+
+      - name: Compilar (gcc -Wall -Wextra)
+        run: |
+          mapfile -d '' SRC < <(find . -name '*.c' -not -path './.git/*' -not -iname '*rascunho*' -print0)
+          echo "Arquivos: ${SRC[*]}"
+          gcc -std=c11 -Wall -Wextra -g -O2 -o golpe "${SRC[@]}" -lm 2> build.log || { cat build.log; exit 1; }
+          cat build.log
+          echo "AVISOS=$(grep -c 'warning:' build.log || true)" >> "$GITHUB_ENV"
+
+      - name: Preparar bases de teste
+        run: |
+          mkdir -p saida
+          cp bases_teste/*.csv saida/
+          # a base 4 (58 MB) não está no repositório: entra vazia (só o cabeçalho)
+          [ -f saida/4_ago2019_mai2020.csv ] || head -1 saida/1_jan2019.csv > saida/4_ago2019_mai2020.csv
+
+      - name: Rodar (tempo e memória)
+        working-directory: saida
+        run: |
+          printf '0\n' | /usr/bin/time -f '%e %M' -o ../tempo.txt ../golpe > ../saida.txt
+          read SEG KB < ../tempo.txt
+          echo "SEG=$SEG" >> "$GITHUB_ENV"; echo "MB=$((KB/1024))" >> "$GITHUB_ENV"
+          echo "CSVS=$(ls | grep -cvE '^[0-9]_.*\.csv$' || true)" >> "$GITHUB_ENV"
+          tail -5 ../saida.txt
+
+      - name: Valgrind (vazamentos)
+        working-directory: saida
+        run: |
+          printf '0\n' | valgrind --leak-check=full --errors-for-leak-kinds=definite --error-exitcode=99 ../golpe > /dev/null 2> ../vg.txt && R=0 || R=$?
+          grep -E 'definitely lost|ERROR SUMMARY' ../vg.txt || true
+          echo "VG=$([ $R -eq 0 ] && echo 'sem vazamentos' || echo 'COM PROBLEMAS')" >> "$GITHUB_ENV"
+
+      - name: Variáveis globais
+        run: |
+          G=$(nm --defined-only golpe | awk '$2 ~ /^[BDbd]$/ {print $3}' | grep -vE '^(_|completed\.|__)' | tr '\n' ' ')
+          echo "GLOBAIS=${G:-nenhuma}" >> "$GITHUB_ENV"
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### Banca CI"
+            echo "| | |"; echo "|---|---|"
+            echo "| Avisos do compilador | ${AVISOS:-?} |"
+            echo "| Tempo (bases de teste) | ${SEG:-?} s |"
+            echo "| Pico de memória | ${MB:-?} MB |"
+            echo "| CSVs gerados | ${CSVS:-?} |"
+            echo "| Valgrind | ${VG:-?} |"
+            echo "| Variáveis globais | ${GLOBAIS:-?} |"
+          } >> "$GITHUB_STEP_SUMMARY"
