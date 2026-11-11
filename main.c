@@ -395,37 +395,100 @@ void gerarCSVs(cartaoNode *inicioGeral) {
     printf("\nTodos os arquivos individuais foram gerados!\n");
 }
 
-void gerarRelatorio(cartaoNode *inicioGeral, long long numeroCartao) {
-    const char *nomes[14] = {
-        "entertainment", "food_dining", "gas_transport", "grocery_net",
-        "grocery_pos", "health_fitness", "home", "kids_pets", "misc_net",
-        "misc_pos", "personal_care", "shopping_net", "shopping_pos", "travel"
-    };
-    int quantidade[14] = {0};
-    double total[14] = {0};
+/* Mostra o perfil de compras de um cartao */
+void gerarRelatorio(cartaoNode *inicioGeral,
+                    long long numeroCartao) {
 
     cartaoNode *cartao = inicioGeral;
-    while (cartao != NULL && cartao->cc_num != numeroCartao) {
+
+    while (cartao != NULL &&
+           cartao->cc_num != numeroCartao) {
+
         cartao = cartao->prox;
     }
+
     if (cartao == NULL) {
         printf("\nCartao nao encontrado.\n");
         return;
     }
 
-    for (transacao *t = cartao->transacoesInicio; t != NULL; t = t->prox) {
-        if (t->category >= 1 && t->category <= 14) {
-            quantidade[t->category - 1]++;
-            total[t->category - 1] += t->amt;
+    resumoCategoria *resumo = NULL;
+    int quantidadeCategorias = 0;
+
+    transacao *atual = cartao->transacoesInicio;
+
+    while (atual != NULL) {
+
+        int posicao = -1;
+
+        for (int i = 0; i < quantidadeCategorias; i++) {
+            if (resumo[i].categoria == atual->category) {
+                posicao = i;
+                break;
+            }
         }
+        if (posicao == -1) {
+            resumoCategoria *novo = realloc(
+                resumo,
+                (quantidadeCategorias + 1) *
+                sizeof(resumoCategoria)
+            );
+            if (novo == NULL) {
+                printf("Erro de memoria ao gerar relatorio.\n");
+                free(resumo);
+                return;
+            }
+            resumo = novo;
+            posicao = quantidadeCategorias;
+
+            resumo[posicao].categoria = atual->category;
+            resumo[posicao].quantidade = 0;
+            resumo[posicao].total = 0;
+
+            quantidadeCategorias++;
+        }
+
+        resumo[posicao].quantidade++;
+        resumo[posicao].total += atual->amt;
+        atual = atual->prox;
     }
 
-    printf("\nNum. Cartao: %lld\n", numeroCartao);
-    printf("----------------------------------------------------\n");
-    printf("%-4s %-20s %-18s %s\n", "No", "Categoria", "Num. de compras", "Valor total");
-    for (int i = 0; i < 14; i++) {
-        printf("%-4d %-20s %-18d %.2f\n", i + 1, nomes[i], quantidade[i], total[i]);
+    const char *nomesCategorias[] = {
+        " Entertainment",
+        " Food Dining",
+        " Gas Transport",
+        " Grocery Net",
+        " Grocery POS",
+        " Health Fitness",
+        " Home",
+        " Kids Pets",
+        " Misc Net",
+        " Misc POS",
+        " Personal Care",
+        " Shopping Net",
+        " Shopping POS",
+        " Travel"
+    };
+
+    printf("\n===== PERFIL DE COMPRAS =====\n");
+    printf("Cartao: %lld\n", numeroCartao);
+    printf("--------------------------------------------------\n");
+    printf("%-20s %-15s %-15s\n",
+           " Categoria", "Num. de compras", "Valor total");
+
+    for (int i = 0; i < quantidadeCategorias; i++) {
+        int codigo = resumo[i].categoria;
+        const char *nome = "Categoria desconhecida";
+
+        if (codigo >= 1 && codigo <= 14) {
+            nome = nomesCategorias[codigo - 1];
+        }
+        printf("%-20s %-15d R$ %.2f\n",
+               nome,
+               resumo[i].quantidade,
+               resumo[i].total);
     }
+    free(resumo);
 }
 
 /* Libera toda a memoria das listas */
