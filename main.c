@@ -547,12 +547,15 @@ void Consulta(cartaoNode *inicioGeral){
     while (numeroCartao != 0){
         printf("\nDigite o numero do cartao para consultar: ");
         printf("Ou digite '0' para sair.\n");
-        if (scanf("%lld", &numeroCartao) != 1){
+        int lido = scanf("%lld", &numeroCartao);
+        if (lido == EOF) break;   // Cauã: entrada acabou, sem isso ficava em loop
+        if (lido != 1){
             if (numeroCartao == 0){
                 break;
             }
             printf("Numero de cartao invalido.\n");
-            while (getchar() != '\n');
+            int ch;
+            while ((ch = getchar()) != '\n' && ch != EOF);
         } else {
             gerarRelatorio(inicioGeral, numeroCartao);
         }
