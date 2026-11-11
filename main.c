@@ -301,14 +301,16 @@ void gerarCSVs(cartaoNode *inicioGeral) {
             continue;
         }
         fprintf(arquivo,
-            "year;month;day;trans_datetime;category;amt;"
-            "fraud_typeA;fraud_typeB;fraud_typeC\n");
+            "year,month,day,trans_datetime,category,amt,"
+            "fraud_typeA,fraud_typeB,fraud_typeC\n");
 
         atual = cartao->transacoesInicio;
 
         while (atual != NULL) {
 
             int ano, mes, dia;
+            int anoAnt, mesAnt, diaAnt;
+            int anoProx, mesProx, diaProx;
             obterData(atual->trans_datetime, &ano, &mes, &dia);
 
             char fraudeA = 'N';
@@ -323,8 +325,6 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 anterior = anterior->prox;
             }
             if (anterior != NULL) {
-
-                int anoAnt, mesAnt, diaAnt;
                 obterData(anterior->trans_datetime,
                           &anoAnt, &mesAnt, &diaAnt);
 
@@ -336,8 +336,6 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 }
             }
             if (proxima != NULL) {
-
-                int anoProx, mesProx, diaProx;
                 obterData(proxima->trans_datetime,
                           &anoProx, &mesProx, &diaProx);
 
@@ -355,7 +353,6 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 if (resumo->ano == ano && resumo->mes == mes) {
                     break;
                 }
-
                 resumo = resumo->prox;
             }
             if (resumo != NULL && resumo->quantidade > 1) {
@@ -379,7 +376,7 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 fraudeC = 'Y';
             }
             fprintf(arquivo,
-                "%d;%d;%d;\"%lld\";%d;%.2f;%c;%c;%c\n",
+                "%d,%d,%d,%lld,%d,%.2f,%c,%c,%c\n",
                 ano, mes, dia,
                 atual->trans_datetime,
                 atual->category,
@@ -430,23 +427,18 @@ void gerarRelatorio(cartaoNode *inicioGeral,
                 break;
             }
         }
-
         if (posicao == -1) {
-
             resumoCategoria *novo = realloc(
                 resumo,
                 (quantidadeCategorias + 1) *
                 sizeof(resumoCategoria)
             );
-
             if (novo == NULL) {
                 printf("Erro de memoria ao gerar relatorio.\n");
                 free(resumo);
                 return;
             }
-
             resumo = novo;
-
             posicao = quantidadeCategorias;
 
             resumo[posicao].categoria = atual->category;
@@ -481,7 +473,7 @@ void gerarRelatorio(cartaoNode *inicioGeral,
     printf("\n===== PERFIL DE COMPRAS =====\n");
     printf("Cartao: %lld\n", numeroCartao);
     printf("--------------------------------------------------\n");
-    printf("%-15s %-20s %-15s\n",
+    printf("%-20s %-15s %-15s\n",
            " Categoria", "Num. de compras", "Valor total");
 
     for (int i = 0; i < quantidadeCategorias; i++) {
@@ -520,8 +512,13 @@ void Consulta(cartaoNode *inicioGeral){
     /* Digitar 0 encerra a consulta */
     while (numeroCartao != 0){
         printf("\nDigite o numero do cartao para consultar: ");
+        printf("Ou digite '0' para sair.\n");
         if (scanf("%lld", &numeroCartao) != 1){
+            if (numeroCartao == 0){
+                break;
+            }
             printf("Numero de cartao invalido.\n");
+            while (getchar() != '\n');
         } else {
             gerarRelatorio(inicioGeral, numeroCartao);
         }
