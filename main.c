@@ -7,7 +7,17 @@
 #define PI 3.14159265358979323846
 #define RAIO_TERRA 6371.0
 
+// Cauã: o nó guarda só o que eu uso depois da leitura
 typedef struct transacao {
+    long long trans_datetime;
+    double amt;
+    struct transacao *prox;
+    int category;
+    char fraudeC;
+} transacao;
+
+// Cauã: a linha lida do CSV mora aqui só durante a leitura
+typedef struct linhaCSV {
     long long trans_datetime;
     long long cc_num;
     int category;
@@ -17,8 +27,7 @@ typedef struct transacao {
     double longi;
     double merch_lat;
     double merch_long;
-    struct transacao *prox;
-} transacao;
+} linhaCSV;
 
 typedef struct cartaoNode {
     long long cc_num;
@@ -118,7 +127,7 @@ cartaoNode *buscarOuCriarCartao(cartaoNode **inicio, long long numero) {
 
 
 /* Insere a transacao em ordem cronologica */
-int inserirTransacao(cartaoNode **inicio, transacao dados) {
+int inserirTransacao(cartaoNode **inicio, linhaCSV dados) {
 
     cartaoNode *cartao =
         buscarOuCriarCartao(inicio, dados.cc_num);
@@ -133,7 +142,12 @@ int inserirTransacao(cartaoNode **inicio, transacao dados) {
         return 0;
     }
 
-    *novo = dados;
+    novo->trans_datetime = dados.trans_datetime;
+    novo->amt = dados.amt;
+    novo->category = dados.category;
+    // Cauã: já calculo a fraude C aqui, assim não guardo as coordenadas
+    novo->fraudeC = calcularHaversine(dados.lat, dados.longi,
+                                      dados.merch_lat, dados.merch_long) > 78.0 ? 'Y' : 'N';
     novo->prox = NULL;
 
     transacao **posicao = &cartao->transacoesInicio;
@@ -185,7 +199,7 @@ int carregarArquivos(cartaoNode **inicio, const char *nomeArquivo) {
 
     while (fgets(linha, sizeof(linha), arquivo) != NULL) {
 
-        transacao dados;
+        linhaCSV dados;
         char *quebra;
 
         quebra = strchr(linha, '\n');
@@ -377,15 +391,7 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 }
             }
             /* Fraude C: distancia maior que 78 km */
-            double distancia = calcularHaversine(
-                atual->lat,
-                atual->longi,
-                atual->merch_lat,
-                atual->merch_long
-            );
-            if (distancia > 78.0) {
-                fraudeC = 'Y';
-            }
+            fraudeC = atual->fraudeC;
             fprintf(arquivo,
                 "%d,%d,%d,%lld,%d,%.2f,%c,%c,%c\n",
                 ano, mes, dia,
