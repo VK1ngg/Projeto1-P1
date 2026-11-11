@@ -656,7 +656,7 @@ struct rgb_value {
 /* What is the first index that will be in the given bin? */
 #define MIN_SHIFT 10
 #define MIN_OFFSET ((1 << MIN_SHIFT) - 1)
-static int bin_offset[] = {
+static const int bin_offset[] = {   /* so leitura */
     (1 << (MIN_SHIFT + 0)) - 1 - MIN_OFFSET,
     (1 << (MIN_SHIFT + 1)) - 1 - MIN_OFFSET,
     (1 << (MIN_SHIFT + 2)) - 1 - MIN_OFFSET,
@@ -1075,7 +1075,7 @@ struct pdf_doc *pdf_create(float width, float height,
         pdf_destroy(pdf);
         return NULL;
     }
-    obj->info = (struct pdf_info *)calloc(sizeof(*obj->info), 1);
+    obj->info = (struct pdf_info *)calloc(1, sizeof(*obj->info));
     if (!obj->info) {
         pdf_destroy(pdf);
         return NULL;
