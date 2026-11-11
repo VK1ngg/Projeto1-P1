@@ -188,6 +188,23 @@ int inserirTransacao(tabelaCartoes *inicio, linhaCSV dados) {
 }
 
 
+// Cauã: strtoll/strtod no lugar do sscanf, que é bem mais pesado
+int lerLinha(char *p, linhaCSV *d) {
+    char *fim;
+    d->trans_datetime = strtoll(p, &fim, 10); if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->cc_num = strtoll(p, &fim, 10);         if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->category = (int)strtol(p, &fim, 10);   if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->amt = strtod(p, &fim);                 if (fim == p || *fim != ',') return 0; p = fim + 1;
+    if (*p == ',' || *p == '\0') return 0;
+    d->gender[0] = *p; d->gender[1] = '\0';
+    p = strchr(p, ',');                       if (p == NULL) return 0; p++;
+    d->lat = strtod(p, &fim);                 if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->longi = strtod(p, &fim);               if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->merch_lat = strtod(p, &fim);           if (fim == p || *fim != ',') return 0; p = fim + 1;
+    d->merch_long = strtod(p, &fim);          if (fim == p) return 0;
+    return 1;
+}
+
 /* Carrega um arquivo CSV */
 int carregarArquivos(tabelaCartoes *inicio, const char *nomeArquivo) {
 
@@ -218,20 +235,7 @@ int carregarArquivos(tabelaCartoes *inicio, const char *nomeArquivo) {
             *quebra = '\0';
         }
 
-        int resultado = sscanf(
-            linha,
-            "%lld,%lld,%d,%lf,%1[^,],%lf,%lf,%lf,%lf",
-            &dados.trans_datetime,
-            &dados.cc_num,
-            &dados.category,
-            &dados.amt,
-            dados.gender,
-            &dados.lat,
-            &dados.longi,
-            &dados.merch_lat,
-            &dados.merch_long
-        );
-        if (resultado != 9) {
+        if (!lerLinha(linha, &dados)) {
             printf("Linha invalida em %s: %s\n",
                    nomeArquivo, linha);
             fclose(arquivo);
