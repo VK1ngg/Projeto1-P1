@@ -756,20 +756,49 @@ void menuFatura(cartaoNode *inicioGeral) {
     }
 }
 
+int existeArquivo(const char *caminho) {   // Cauã
+    FILE *teste = fopen(caminho, "r");
+    if (teste == NULL) {
+        return 0;
+    }
+    fclose(teste);
+    return 1;
+}
+
 int carregarBase(tabelaCartoes *tabela, const char *nome) {   // Cauã
     const char *pastas[] = {"", "bases/", "bases_teste/"};
-    char caminho[256];
+    char caminho[512];
 
     for (int i = 0; i < 3; i++) {
         snprintf(caminho, sizeof(caminho), "%s%s", pastas[i], nome);
-        FILE *teste = fopen(caminho, "r");
-        if (teste != NULL) {
-            fclose(teste);
+        if (existeArquivo(caminho)) {
             return carregarArquivos(tabela, caminho) == 0;
         }
     }
-    printf("%s nao encontrado, seguindo sem ele.\n", nome);
-    return 0;
+
+    while (1) {
+        printf("%s nao encontrado. Digite o caminho do arquivo (Enter para pular): ", nome);
+        if (fgets(caminho, sizeof(caminho), stdin) == NULL) {
+            return 0;
+        }
+        caminho[strcspn(caminho, "\r\n")] = '\0';
+
+        // Cauã: arrastar o arquivo pro terminal deixa aspas ou espaço no fim
+        size_t tam = strlen(caminho);
+        while (tam > 0 && (caminho[tam - 1] == ' ' || caminho[tam - 1] == '"')) {
+            caminho[--tam] = '\0';
+        }
+        char *inicio = caminho[0] == '"' ? caminho + 1 : caminho;
+
+        if (inicio[0] == '\0') {
+            printf("Pulando %s.\n", nome);
+            return 0;
+        }
+        if (existeArquivo(inicio)) {
+            return carregarArquivos(tabela, inicio) == 0;
+        }
+        printf("Arquivo nao encontrado: %s\n", inicio);
+    }
 }
 
 int main(int argc, char *argv[]) {
