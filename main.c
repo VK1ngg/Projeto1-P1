@@ -34,7 +34,7 @@ typedef struct linhaCSV {
 typedef struct cartaoNode {
     long long cc_num;
     transacao *transacoesInicio;
-    transacao *transacoesFim;   // Cauã
+    transacao *transacoesFim;   // Cauã: guarda a última, pra não andar a lista toda
     int qtdTransacoes;
     double somaValores;
     struct cartaoNode *prox;
@@ -163,7 +163,7 @@ int inserirTransacao(tabelaCartoes *inicio, linhaCSV dados) {
 
     transacao **posicao = &cartao->transacoesInicio;
 
-    // Cauã
+    // Cauã: se chegou depois da última, vai direto pro fim (sofri menos agora)
     if (cartao->transacoesFim != NULL &&
         cartao->transacoesFim->trans_datetime <= novo->trans_datetime) {
         posicao = &cartao->transacoesFim->prox;

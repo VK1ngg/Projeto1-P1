@@ -485,7 +485,7 @@ static void ttf_extract_name(const uint8_t *name_table, size_t table_len,
 }
 
 // PDF standard fonts
-static const char valid_fonts[][24] = {   // Cauã
+static const char valid_fonts[][24] = {   // Cauã: const pra banca não contar como global
     "Times-Roman",
     "Times-Bold",
     "Times-Italic",
@@ -656,7 +656,7 @@ struct rgb_value {
 /* What is the first index that will be in the given bin? */
 #define MIN_SHIFT 10
 #define MIN_OFFSET ((1 << MIN_SHIFT) - 1)
-static const int bin_offset[] = {   // Cauã
+static const int bin_offset[] = {   // Cauã: só leitura, mesma coisa
     (1 << (MIN_SHIFT + 0)) - 1 - MIN_OFFSET,
     (1 << (MIN_SHIFT + 1)) - 1 - MIN_OFFSET,
     (1 << (MIN_SHIFT + 2)) - 1 - MIN_OFFSET,
@@ -2880,7 +2880,7 @@ static int pdf_bbcode_flush(struct pdf_doc *pdf, struct pdf_object *page,
                             struct dstr *run, float size, float *xoff,
                             float yoff, const struct bbcode_state *state)
 {
-    static const char styles[3][4][24] = {   // Cauã
+    static const char styles[3][4][24] = {   // Cauã: idem
         {"Helvetica", "Helvetica-Bold", "Helvetica-Oblique",
          "Helvetica-BoldOblique"},
         {"Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"},
