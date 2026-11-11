@@ -23,6 +23,7 @@ typedef struct transacao {
 typedef struct cartaoNode {
     long long cc_num;
     transacao *transacoesInicio;
+    transacao *transacoesFim;   /* ultima transacao do cartao */
     int qtdTransacoes;
     double somaValores;
     struct cartaoNode *prox;
@@ -105,6 +106,7 @@ cartaoNode *buscarOuCriarCartao(cartaoNode **inicio, long long numero) {
 
     novo->cc_num = numero;
     novo->transacoesInicio = NULL;
+    novo->transacoesFim = NULL;
     novo->qtdTransacoes = 0;
     novo->somaValores = 0;
     novo->prox = *inicio;
@@ -136,6 +138,12 @@ int inserirTransacao(cartaoNode **inicio, transacao dados) {
 
     transacao **posicao = &cartao->transacoesInicio;
 
+    /* atalho: chegou depois da ultima transacao do cartao? vai direto pro fim */
+    if (cartao->transacoesFim != NULL &&
+        cartao->transacoesFim->trans_datetime <= novo->trans_datetime) {
+        posicao = &cartao->transacoesFim->prox;
+    }
+
     while (*posicao != NULL &&
            (*posicao)->trans_datetime <= novo->trans_datetime) {
 
@@ -144,6 +152,9 @@ int inserirTransacao(cartaoNode **inicio, transacao dados) {
 
     novo->prox = *posicao;
     *posicao = novo;
+    if (novo->prox == NULL) {
+        cartao->transacoesFim = novo;   /* virou a ultima */
+    }
 
     cartao->qtdTransacoes++;
     cartao->somaValores += novo->amt;
