@@ -29,6 +29,8 @@ typedef struct linhaCSV {
     double merch_long;
 } linhaCSV;
 
+#define TAM_TABELA 1031   // Cauã: primo perto da qtd de cartões (951)
+
 typedef struct cartaoNode {
     long long cc_num;
     transacao *transacoesInicio;
@@ -36,7 +38,14 @@ typedef struct cartaoNode {
     int qtdTransacoes;
     double somaValores;
     struct cartaoNode *prox;
+    struct cartaoNode *proxNoBalde;   // Cauã: colisão, igual a aula 9
 } cartaoNode;
+
+// Cauã: tabela hash (aula 9), acho o cartão direto em vez de andar a lista toda
+typedef struct tabelaCartoes {
+    cartaoNode *baldes[TAM_TABELA];
+    cartaoNode *lista;
+} tabelaCartoes;
 
 typedef struct resumoCategoria {
     int categoria;
@@ -95,16 +104,17 @@ void obterData(long long timestamp, int *ano, int *mes, int *dia) {
 
 
 /* Procura ou cria um cartao */
-cartaoNode *buscarOuCriarCartao(cartaoNode **inicio, long long numero) {
+cartaoNode *buscarOuCriarCartao(tabelaCartoes *tabela, long long numero) {
 
-    cartaoNode *atual = *inicio;
+    unsigned balde = (unsigned)((unsigned long long)numero % TAM_TABELA);
+    cartaoNode *atual = tabela->baldes[balde];
 
     while (atual != NULL) {
         if (atual->cc_num == numero) {
             return atual;
         }
 
-        atual = atual->prox;
+        atual = atual->proxNoBalde;
     }
 
     cartaoNode *novo = malloc(sizeof(cartaoNode));
@@ -118,16 +128,17 @@ cartaoNode *buscarOuCriarCartao(cartaoNode **inicio, long long numero) {
     novo->transacoesFim = NULL;
     novo->qtdTransacoes = 0;
     novo->somaValores = 0;
-    novo->prox = *inicio;
-
-    *inicio = novo;
+    novo->prox = tabela->lista;
+    tabela->lista = novo;
+    novo->proxNoBalde = tabela->baldes[balde];
+    tabela->baldes[balde] = novo;
 
     return novo;
 }
 
 
 /* Insere a transacao em ordem cronologica */
-int inserirTransacao(cartaoNode **inicio, linhaCSV dados) {
+int inserirTransacao(tabelaCartoes *inicio, linhaCSV dados) {
 
     cartaoNode *cartao =
         buscarOuCriarCartao(inicio, dados.cc_num);
@@ -178,7 +189,7 @@ int inserirTransacao(cartaoNode **inicio, linhaCSV dados) {
 
 
 /* Carrega um arquivo CSV */
-int carregarArquivos(cartaoNode **inicio, const char *nomeArquivo) {
+int carregarArquivos(tabelaCartoes *inicio, const char *nomeArquivo) {
 
     FILE *arquivo = fopen(nomeArquivo, "r");
 
@@ -545,39 +556,48 @@ void Consulta(cartaoNode *inicioGeral){
 
 int main() {
 
-    cartaoNode *inicioGeral = NULL;
+    tabelaCartoes *tabela = calloc(1, sizeof(tabelaCartoes));
+
+    if (tabela == NULL) {
+        return 1;
+    }
 
     /* Carregar os quatro arquivos */
-    if (carregarArquivos(&inicioGeral, "1_jan2019.csv") != 0) {
-        liberarMemoria(inicioGeral);
+    if (carregarArquivos(tabela, "1_jan2019.csv") != 0) {
+        liberarMemoria(tabela->lista);
+        free(tabela);
         return 1;
     }
 
-    if (carregarArquivos(&inicioGeral, "2_fev_mar2019.csv") != 0) {
-        liberarMemoria(inicioGeral);
+    if (carregarArquivos(tabela, "2_fev_mar2019.csv") != 0) {
+        liberarMemoria(tabela->lista);
+        free(tabela);
         return 1;
     }
 
-    if (carregarArquivos(&inicioGeral, "3_abr_jul2019.csv") != 0) {
-        liberarMemoria(inicioGeral);
+    if (carregarArquivos(tabela, "3_abr_jul2019.csv") != 0) {
+        liberarMemoria(tabela->lista);
+        free(tabela);
         return 1;
     }
 
-    if (carregarArquivos(&inicioGeral, "4_ago2019_mai2020.csv") != 0) {
-        liberarMemoria(inicioGeral);
+    if (carregarArquivos(tabela, "4_ago2019_mai2020.csv") != 0) {
+        liberarMemoria(tabela->lista);
+        free(tabela);
         return 1;
     }
 
     printf("\nTodos os arquivos foram carregados!\n");
 
     /* Gerar os arquivos individuais dos cartoes */
-    gerarCSVs(inicioGeral);
+    gerarCSVs(tabela->lista);
 
     /* Consultar o perfil de compras de um cartao */
-    Consulta(inicioGeral);
+    Consulta(tabela->lista);
 
     /* Liberar memoria */
-    liberarMemoria(inicioGeral);
+    liberarMemoria(tabela->lista);
+    free(tabela);
 
     return 0;
 }
