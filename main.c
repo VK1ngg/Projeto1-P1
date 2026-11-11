@@ -556,10 +556,12 @@ void Consulta(cartaoNode *inicioGeral){
             printf("Numero de cartao invalido.\n");
             int ch;
             while ((ch = getchar()) != '\n' && ch != EOF);
-        } else {
+        } else if (numeroCartao != 0) {
             gerarRelatorio(inicioGeral, numeroCartao);
         }
     }
+    int resto;   // Cauã: tira o Enter do 0 pra fatura nao repetir a pergunta
+    while ((resto = getchar()) != '\n' && resto != EOF);
 }
 
 #define ROXO     PDF_RGB(0x82, 0x0a, 0xd1)
