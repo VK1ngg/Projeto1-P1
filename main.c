@@ -756,7 +756,23 @@ void menuFatura(cartaoNode *inicioGeral) {
     }
 }
 
-int main() {
+int carregarBase(tabelaCartoes *tabela, const char *nome) {   // Cauã
+    const char *pastas[] = {"", "bases/", "bases_teste/"};
+    char caminho[256];
+
+    for (int i = 0; i < 3; i++) {
+        snprintf(caminho, sizeof(caminho), "%s%s", pastas[i], nome);
+        FILE *teste = fopen(caminho, "r");
+        if (teste != NULL) {
+            fclose(teste);
+            return carregarArquivos(tabela, caminho) == 0;
+        }
+    }
+    printf("%s nao encontrado, seguindo sem ele.\n", nome);
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
 
     tabelaCartoes *tabela = calloc(1, sizeof(tabelaCartoes));
 
@@ -764,32 +780,27 @@ int main() {
         return 1;
     }
 
-    /* Carregar os quatro arquivos */
-    if (carregarArquivos(tabela, "1_jan2019.csv") != 0) {
+    const char *bases[] = {"1_jan2019.csv", "2_fev_mar2019.csv", "3_abr_jul2019.csv", "4_ago2019_mai2020.csv"};
+    int carregadas = 0;
+
+    if (argc > 1) {   // Cauã: ./golpe base1.csv base2.csv ...
+        for (int i = 1; i < argc; i++) {
+            carregadas += carregarArquivos(tabela, argv[i]) == 0;
+        }
+    } else {
+        for (int i = 0; i < 4; i++) {
+            carregadas += carregarBase(tabela, bases[i]);
+        }
+    }
+
+    if (carregadas == 0) {
+        printf("Nenhuma base carregada. Coloque os CSVs na pasta do programa ou em bases/.\n");
         liberarMemoria(tabela->lista);
         free(tabela);
         return 1;
     }
 
-    if (carregarArquivos(tabela, "2_fev_mar2019.csv") != 0) {
-        liberarMemoria(tabela->lista);
-        free(tabela);
-        return 1;
-    }
-
-    if (carregarArquivos(tabela, "3_abr_jul2019.csv") != 0) {
-        liberarMemoria(tabela->lista);
-        free(tabela);
-        return 1;
-    }
-
-    if (carregarArquivos(tabela, "4_ago2019_mai2020.csv") != 0) {
-        liberarMemoria(tabela->lista);
-        free(tabela);
-        return 1;
-    }
-
-    printf("\nTodos os arquivos foram carregados!\n");
+    printf("\n%d base(s) carregada(s)!\n", carregadas);
 
     /* Gerar os arquivos individuais dos cartoes */
     gerarCSVs(tabela->lista);
