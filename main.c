@@ -36,6 +36,7 @@ typedef struct cartaoNode {
     long long cc_num;
     transacao *transacoesInicio;
     transacao *transacoesFim;   // Cauã: guarda a última, pra não andar a lista toda
+    transacao *ultimaMexida;    // Cauã: onde parei, a base 5 volta pra 2019 depois da 4
     int qtdTransacoes;
     double somaValores;
     struct cartaoNode *prox;
@@ -127,6 +128,7 @@ cartaoNode *buscarOuCriarCartao(tabelaCartoes *tabela, long long numero) {
     novo->cc_num = numero;
     novo->transacoesInicio = NULL;
     novo->transacoesFim = NULL;
+    novo->ultimaMexida = NULL;
     novo->qtdTransacoes = 0;
     novo->somaValores = 0;
     novo->prox = tabela->lista;
@@ -148,6 +150,31 @@ int inserirTransacao(tabelaCartoes *inicio, linhaCSV dados) {
         return 0;
     }
 
+    transacao **posicao = &cartao->transacoesInicio;
+
+    // Cauã: começo do ponto mais perto, a última da lista ou onde parei antes
+    if (cartao->transacoesFim != NULL &&
+        cartao->transacoesFim->trans_datetime < dados.trans_datetime) {
+        posicao = &cartao->transacoesFim->prox;
+    } else if (cartao->ultimaMexida != NULL &&
+               cartao->ultimaMexida->trans_datetime < dados.trans_datetime) {
+        posicao = &cartao->ultimaMexida->prox;
+    }
+
+    while (*posicao != NULL &&
+           (*posicao)->trans_datetime <= dados.trans_datetime) {
+
+        // Cauã: a base 5 repete as outras 4, a mesma compra não entra duas vezes
+        if ((*posicao)->trans_datetime == dados.trans_datetime &&
+            (*posicao)->amt == dados.amt &&
+            (*posicao)->category == dados.category) {
+            cartao->ultimaMexida = *posicao;
+            return 2;
+        }
+
+        posicao = &(*posicao)->prox;
+    }
+
     transacao *novo = malloc(sizeof(transacao));
 
     if (novo == NULL) {
@@ -160,27 +187,13 @@ int inserirTransacao(tabelaCartoes *inicio, linhaCSV dados) {
     // Cauã: já calculo a fraude C aqui, assim não guardo as coordenadas
     novo->fraudeC = calcularHaversine(dados.lat, dados.longi,
                                       dados.merch_lat, dados.merch_long) > 78.0 ? 'Y' : 'N';
-    novo->prox = NULL;
-
-    transacao **posicao = &cartao->transacoesInicio;
-
-    // Cauã: se chegou depois da última, vai direto pro fim (sofri menos agora)
-    if (cartao->transacoesFim != NULL &&
-        cartao->transacoesFim->trans_datetime <= novo->trans_datetime) {
-        posicao = &cartao->transacoesFim->prox;
-    }
-
-    while (*posicao != NULL &&
-           (*posicao)->trans_datetime <= novo->trans_datetime) {
-
-        posicao = &(*posicao)->prox;
-    }
 
     novo->prox = *posicao;
     *posicao = novo;
     if (novo->prox == NULL) {
         cartao->transacoesFim = novo;
     }
+    cartao->ultimaMexida = novo;
 
     cartao->qtdTransacoes++;
     cartao->somaValores += novo->amt;
@@ -225,6 +238,7 @@ int carregarArquivos(tabelaCartoes *inicio, const char *nomeArquivo) {
     }
 
     int linhasLidas = 0;
+    int repetidas = 0;
 
     while (fgets(linha, sizeof(linha), arquivo) != NULL) {
 
@@ -243,18 +257,27 @@ int carregarArquivos(tabelaCartoes *inicio, const char *nomeArquivo) {
             return 1;
         }
 
-        if (!inserirTransacao(inicio, dados)) {
+        int resultado = inserirTransacao(inicio, dados);
+
+        if (!resultado) {
             printf("Erro de memoria ao inserir transacao.\n");
             fclose(arquivo);
             return 1;
         }
 
-        linhasLidas++;
+        if (resultado == 2) {   // Cauã
+            repetidas++;
+        } else {
+            linhasLidas++;
+        }
     }
     fclose(arquivo);
 
     printf("%s carregado: %d transacoes.\n",
            nomeArquivo, linhasLidas);
+    if (repetidas > 0) {
+        printf("  %d repetidas ignoradas (ja estavam em outra base).\n", repetidas);
+    }
 
     return 0;
 }
@@ -811,7 +834,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const char *bases[] = {"1_jan2019.csv", "2_fev_mar2019.csv", "3_abr_jul2019.csv", "4_ago2019_mai2020.csv"};
+    const char *bases[] = {"1_jan2019.csv", "2_fev_mar2019.csv", "3_abr_jul2019.csv", "4_ago2019_mai2020.csv",
+                           "credit_card_transactions_tratado.csv"};
     int carregadas = 0;
 
     if (argc > 1) {   // Cauã: ./golpe base1.csv base2.csv ...
@@ -819,7 +843,7 @@ int main(int argc, char *argv[]) {
             carregadas += carregarArquivos(tabela, argv[i]) == 0;
         }
     } else {
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             carregadas += carregarBase(tabela, bases[i]);
         }
     }
