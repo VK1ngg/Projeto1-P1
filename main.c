@@ -316,6 +316,9 @@ void gerarCSVs(cartaoNode *inicioGeral) {
             "fraud_typeA,fraud_typeB,fraud_typeC\n");
 
         atual = cartao->transacoesInicio;
+        // Cauã: guardo a anterior enquanto ando, em vez de voltar pro começo
+        transacao *anterior = NULL;
+        resumoMes *resumo = NULL;
 
         while (atual != NULL) {
 
@@ -329,12 +332,8 @@ void gerarCSVs(cartaoNode *inicioGeral) {
             char fraudeC = 'N';
 
             /* Fraude A: outra compra em menos de 2 minutos */
-            transacao *anterior = cartao->transacoesInicio;
             transacao *proxima = atual->prox;
 
-            while (anterior != NULL && anterior->prox != atual) {
-                anterior = anterior->prox;
-            }
             if (anterior != NULL) {
                 obterData(anterior->trans_datetime,
                           &anoAnt, &mesAnt, &diaAnt);
@@ -358,13 +357,14 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 }
             }
             /* Fraude B: valor pelo menos 3 vezes a media das outras */
-            resumoMes *resumo = meses;
-
-            while (resumo != NULL) {
-                if (resumo->ano == ano && resumo->mes == mes) {
-                    break;
+            if (resumo == NULL || resumo->ano != ano || resumo->mes != mes) {
+                resumo = meses;
+                while (resumo != NULL) {
+                    if (resumo->ano == ano && resumo->mes == mes) {
+                        break;
+                    }
+                    resumo = resumo->prox;
                 }
-                resumo = resumo->prox;
             }
             if (resumo != NULL && resumo->quantidade > 1) {
 
@@ -396,6 +396,7 @@ void gerarCSVs(cartaoNode *inicioGeral) {
                 fraudeB,
                 fraudeC
             );
+            anterior = atual;
             atual = atual->prox;
         }
         fclose(arquivo);
