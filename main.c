@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "pdfgen.h"   // Cauã
 
 #define PI 3.14159265358979323846
 #define RAIO_TERRA 6371.0
@@ -558,6 +559,200 @@ void Consulta(cartaoNode *inicioGeral){
     }
 }
 
+#define ROXO     PDF_RGB(0x82, 0x0a, 0xd1)
+#define PRETO    PDF_RGB(0x00, 0x00, 0x00)
+#define BRANCO   PDF_RGB(0xff, 0xff, 0xff)
+#define CINZA    PDF_RGB(0xf2, 0xf2, 0xf2)
+#define VERMELHO PDF_RGB(0xcc, 0x00, 0x00)
+#define LOGO     "assets/nu.jpg"
+#define LINHAS_PAG1   32
+#define LINHAS_OUTRAS 44
+
+void textoDireita(struct pdf_doc *pdf, const char *texto, float tamanho, float x, float y, uint32_t cor) {
+    pdf_add_text_wrap(pdf, NULL, texto, tamanho, x - 200, y, 0, cor, 200, PDF_ALIGN_RIGHT, NULL);
+}
+
+void formatarValor(double valor, char *texto, size_t tamanho) {
+    snprintf(texto, tamanho, "%.2f", valor);
+    char *ponto = strchr(texto, '.');
+    if (ponto != NULL) *ponto = ',';
+}
+
+int ehDoMes(transacao *t, int mes, int ano) {
+    int a, m, d;
+    if (t == NULL) return 0;
+    obterData(t->trans_datetime, &a, &m, &d);
+    return a == ano && m == mes;
+}
+
+void verificarFraudes(transacao *anterior, transacao *atual, int mes, int ano,
+                      int qtdMes, double somaMes, char *letras) {
+    letras[0] = '\0';
+
+    if ((ehDoMes(anterior, mes, ano) && atual->trans_datetime - anterior->trans_datetime < 120) ||
+        (ehDoMes(atual->prox, mes, ano) && atual->prox->trans_datetime - atual->trans_datetime < 120)) {
+        strcat(letras, "A ");
+    }
+
+    if (qtdMes > 1 && atual->amt >= 3.0 * (somaMes - atual->amt) / (qtdMes - 1)) {
+        strcat(letras, "B ");
+    }
+
+    if (atual->fraudeC == 'Y') {
+        strcat(letras, "C");
+    }
+}
+
+void novaPagina(struct pdf_doc *pdf, int mes, int ano, float yTabela) {
+    char texto[64];
+    pdf_append_page(pdf);
+    pdf_add_image_file(pdf, NULL, 40, 790, 54, 30, LOGO);
+    pdf_set_font(pdf, "Helvetica-Bold");
+    snprintf(texto, sizeof(texto), "Fatura do cartão de crédito - %02d/%d", mes, ano);
+    pdf_add_text(pdf, NULL, texto, 14, 108, 800, PRETO);
+    pdf_add_line(pdf, NULL, 40, 780, 555, 780, 1.5, ROXO);
+
+    pdf_add_filled_rectangle(pdf, NULL, 40, yTabela - 5, 515, 16, 0, ROXO, PDF_TRANSPARENT);
+    pdf_add_text(pdf, NULL, "Data", 9, 44, yTabela, BRANCO);
+    pdf_add_text(pdf, NULL, "Hora", 9, 104, yTabela, BRANCO);
+    pdf_add_text(pdf, NULL, "Lançamento", 9, 140, yTabela, BRANCO);
+    pdf_add_text(pdf, NULL, "Suspeita", 9, 380, yTabela, BRANCO);
+    textoDireita(pdf, "Valor (R$)", 9, 551, yTabela, BRANCO);
+    pdf_set_font(pdf, "Helvetica");
+    pdf_add_text(pdf, NULL, "A) outra compra a menos de 2 min    B) 3 vezes ou mais a média    "
+                 "C loja a mais de 78 km", 7.5, 40, 30, PRETO);
+}
+
+int gerarFaturaPDF(cartaoNode *inicioGeral, long long numeroCartao, int mes, int ano) {
+    const char *nomes[] = {"entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos",
+                           "health_fitness", "home", "kids_pets", "misc_net", "misc_pos",
+                           "personal_care", "shopping_net", "shopping_pos", "travel"};
+    cartaoNode *cartao = inicioGeral;
+    while (cartao != NULL && cartao->cc_num != numeroCartao) {
+        cartao = cartao->prox;
+    }
+    if (cartao == NULL) {
+        printf("Cartao nao encontrado.\n");
+        return 0;
+    }
+
+    transacao *primeira = NULL, *anterior = NULL, *t, *ant;
+    int qtd = 0, suspeitas = 0;
+    double total = 0;
+    char letras[8], texto[96];
+    for (t = cartao->transacoesInicio; t != NULL; t = t->prox) {
+        if (ehDoMes(t, mes, ano)) {
+            if (primeira == NULL) primeira = t;
+            qtd++;
+            total += t->amt;
+        } else if (primeira == NULL) {
+            anterior = t;
+        } else {
+            break;
+        }
+    }
+    if (qtd == 0) {
+        printf("Nenhuma transacao desse cartao em %02d/%d.\n", mes, ano);
+        return 0;
+    }
+
+    ant = anterior;
+    t = primeira;
+    for (int i = 0; i < qtd; i++, ant = t, t = t->prox) {
+        verificarFraudes(ant, t, mes, ano, qtd, total, letras);
+        suspeitas += (letras[0] != '\0');
+    }
+
+    struct pdf_doc *pdf = pdf_create(PDF_A4_WIDTH, PDF_A4_HEIGHT, NULL);
+    if (pdf == NULL) {
+        printf("Sem memoria para o PDF.\n");
+        return 0;
+    }
+
+    novaPagina(pdf, mes, ano, 600);
+    snprintf(texto, sizeof(texto), "Cartão: %lld", numeroCartao);
+    pdf_add_text(pdf, NULL, texto, 10, 40, 755, PRETO);
+    snprintf(texto, sizeof(texto), "Vencimento: 10/%02d/%d", mes % 12 + 1, ano + (mes == 12));
+    pdf_add_text(pdf, NULL, texto, 10, 40, 740, PRETO);
+    snprintf(texto, sizeof(texto), "Lançamentos: %d    Com suspeita de fraude: %d", qtd, suspeitas);
+    pdf_add_text(pdf, NULL, texto, 10, 40, 712, PRETO);
+    formatarValor(total, texto, sizeof(texto));
+    pdf_set_font(pdf, "Helvetica-Bold");
+    pdf_add_text(pdf, NULL, "Total desta fatura: R$", 13, 40, 680, PRETO);
+    pdf_add_text(pdf, NULL, texto, 13, 190, 680, PRETO);
+    pdf_add_text(pdf, NULL, "Lançamentos", 11, 40, 625, PRETO);
+    pdf_set_font(pdf, "Helvetica");
+
+    float y = 600;
+    int linha = 0, limite = LINHAS_PAG1;
+    ant = anterior;
+    t = primeira;
+    for (int i = 0; i < qtd; i++, ant = t, t = t->prox) {
+        if (linha == limite) {
+            novaPagina(pdf, mes, ano, 760);
+            y = 760;
+            linha = 0;
+            limite = LINHAS_OUTRAS;
+        }
+        y -= 15;
+        verificarFraudes(ant, t, mes, ano, qtd, total, letras);
+        time_t tempo = (time_t)t->trans_datetime;
+        struct tm *d = gmtime(&tempo);
+        uint32_t cor = letras[0] ? VERMELHO : PRETO;
+        if (linha % 2) pdf_add_filled_rectangle(pdf, NULL, 40, y - 4, 515, 15, 0, CINZA, PDF_TRANSPARENT);
+
+        snprintf(texto, sizeof(texto), "%02d/%02d/%d", d->tm_mday, d->tm_mon + 1, d->tm_year + 1900);
+        pdf_add_text(pdf, NULL, texto, 9, 44, y, PRETO);
+        snprintf(texto, sizeof(texto), "%02d:%02d", d->tm_hour, d->tm_min);
+        pdf_add_text(pdf, NULL, texto, 9, 104, y, PRETO);
+        pdf_add_text(pdf, NULL, (t->category >= 1 && t->category <= 14) ? nomes[t->category - 1] : "outros",
+                     9, 140, y, PRETO);
+        pdf_add_text(pdf, NULL, letras, 9, 380, y, cor);
+        formatarValor(t->amt, texto, sizeof(texto));
+        textoDireita(pdf, texto, 9, 551, y, cor);
+        linha++;
+    }
+
+    formatarValor(total, texto, sizeof(texto));
+    pdf_add_line(pdf, NULL, 40, y - 8, 555, y - 8, 1, PRETO);
+    pdf_set_font(pdf, "Helvetica-Bold");
+    pdf_add_text(pdf, NULL, "Total desta fatura", 9, 44, y - 22, PRETO);
+    textoDireita(pdf, texto, 9, 551, y - 22, PRETO);
+
+    char nome[80];
+    snprintf(nome, sizeof(nome), "fatura_%lld_%d-%02d.pdf", numeroCartao, ano, mes);
+    int ok = pdf_save(pdf, nome) == 0;
+    pdf_destroy(pdf);
+    if (ok) printf("Fatura gerada: %s (%d lancamentos).\n", nome, qtd);
+    else printf("Nao foi possivel gravar %s.\n", nome);
+    return ok;
+}
+
+void menuFatura(cartaoNode *inicioGeral) {
+    char linha[64], sobra;
+    long long numero;
+    int mes, ano;
+
+    while (1) {
+        printf("\nFatura em PDF - numero do cartao (0 para voltar): ");
+        if (fgets(linha, sizeof(linha), stdin) == NULL) return;
+        if (linha[0] == '\n') continue;
+        if (sscanf(linha, "%lld %c", &numero, &sobra) != 1 || numero < 0) {
+            printf("Digite so os numeros do cartao.\n");
+            continue;
+        }
+        if (numero == 0) return;
+        printf("Mes/ano da fatura (ex.: 12/2019): ");
+        if (fgets(linha, sizeof(linha), stdin) == NULL) return;
+        if (sscanf(linha, "%d/%d %c", &mes, &ano, &sobra) != 2 || mes < 1 || mes > 12 ||
+            ano < 1970 || ano > 2100) {
+            printf("Mes/ano invalido. Use o formato MM/AAAA.\n");
+            continue;
+        }
+        gerarFaturaPDF(inicioGeral, numero, mes, ano);
+    }
+}
+
 int main() {
 
     tabelaCartoes *tabela = calloc(1, sizeof(tabelaCartoes));
@@ -598,6 +793,7 @@ int main() {
 
     /* Consultar o perfil de compras de um cartao */
     Consulta(tabela->lista);
+    menuFatura(tabela->lista);   // Cauã
 
     /* Liberar memoria */
     liberarMemoria(tabela->lista);
